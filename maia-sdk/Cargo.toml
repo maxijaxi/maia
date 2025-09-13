@@ -27,4 +27,4 @@ proptest = { workspace = true }
 
 [features]
 default = []
-test-utils = ["tokio/test-uitl"]
+test-utils = ["tokio/test-util"]
