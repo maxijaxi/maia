@@ -1,21 +1,22 @@
-//! Error types for maia modules and core system.
+//! Error types for MAIA modules and core system.
 //!
-//! Follow the principle: All errors are either recoverable (can retry) or fatal (must handle differently).
+//! Follows the principle: All errors are either recoverable (can retry) or fatal (must handle differently).
 //! Every error provides context and recovery suggestions.
 
 use std::fmt;
 use thiserror::Error;
-use serde::{Deserialize, Serialioze};
+use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
 /// Main error type for maia modules
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum ModuleError {
-    /// Temporary Errors that can be retried
+    /// Temporary errors that can be retried
     #[error("Temporary error: {0}")]
     Temporary(#[from] TemporaryError),
 
-    /// Fatal error that require different handling
+    /// Fatal errors that require different handling
+    #[error("Fatal error: {0}")]
     Fatal(#[from] FatalError),
 }
 
@@ -31,7 +32,7 @@ pub enum TemporaryError {
     #[error("Request timeout after {timeout_ms}ms")]
     Timeout {
         timeout_ms: u64,
-        operation: string,
+        operation: String,
     },
 
     #[error("Rate limit exceeded: {message}")]
@@ -93,7 +94,7 @@ pub enum FatalError {
         actual: String,
     },
 
-    #[error("Resource limit exceeded: {resource")]
+    #[error("Resource limit exceeded: {resource}")]
     ResourceExhausted {
         resource: String,
         limit: String,
@@ -177,7 +178,7 @@ impl Default for ErrorContext {
 }
 
 /// Error with full context
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub struct ContextualError {
     pub error: ModuleError,
     pub context: ErrorContext,
@@ -198,8 +199,6 @@ impl fmt::Display for ContextualError {
         Ok(())
     }
 }
-
-impl std::error::Error for ContextualError {}
 
 /// Helper trait for adding context to errors
 pub trait ErrorExt {
@@ -252,16 +251,16 @@ impl From<ModuleError> for ErrorInfo {
 
 impl From<ContextualError> for ErrorInfo {
     fn from(error: ContextualError) -> Self {
-        let mut info = Error::from(error.error);
-        into.context = Some(error.context);
+        let mut info = ErrorInfo::from(error.error);
+        info.context = Some(error.context);
         info
     }
 }
 
 /// Get error code for serialization
-fn  error_code(error: &dyn std::error::Error) -> &'static str {
-    /// Use type name as error code
-    /// In prod, we'd have a proper error code mapping
+fn  error_code(error: &(dyn std::error::Error + 'static)) -> &'static str {
+    // Use type name as error code
+    // In prod, we'd have a proper error code mapping
     if error.is::<TemporaryError>() {
         "TEMPORARY"
     } else {
@@ -305,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_contextual_error() {
-        let error = ModuleError::Temporary(TemporaryError:: Timeout {
+        let error = ModuleError::Temporary(TemporaryError::Timeout {
             timeout_ms: 5000,
             operation: "module_load".to_string(),
         });

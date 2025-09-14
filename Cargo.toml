@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-    "maia-core",
+    # "maia-core",
     "maia-sdk",
-    "maia-cli",
-    "maia-module/*",
+    # "maia-cli",
+    # "maia-module/*",
 ]
 
 [workspace.package]
@@ -38,7 +38,7 @@ wasmtime-wasi = "36.0.2"
 
 # Discovery
 mdns = "3.0.0"
-libp2p = { version = "0.56.0", optional = true }
+libp2p = "0.56.0"
 
 # Cryptography
 ed25519-dalek = "2.2.0"

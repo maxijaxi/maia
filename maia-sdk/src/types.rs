@@ -1,4 +1,4 @@
-//! Core types for maia message passing and module communication.
+//! Core types for MAIA message passing and module communication.
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
@@ -25,7 +25,7 @@ impl Capability {
 
     /// Parse capability into namespace, category and action
     pub fn parse(&self) -> Option<(String, String, String)> {
-        let parts: Vec<&str> = self.0.split(':').collect();
+        let parts: Vec<&str> = self.0.split('.').collect();
         if parts.len() >= 3 {
             Some((
                 parts[0].to_string(),
@@ -44,14 +44,14 @@ impl Capability {
 
     /// Check if capability matches a pattern (supports wildcards)
     pub fn matches(&self, pattern: &str) -> bool {
-        if pattern = "*" {
+        if pattern == "*" {
             return true;
         }
 
         let pattern_parts: Vec<&str> = pattern.split('.').collect();
         let capability_parts: Vec<&str> = self.0.split('.').collect();
 
-        if pattern_parts.len() >= capability_parts.len() {
+        if pattern_parts.len() > capability_parts.len() {
             return false;
         }
 
@@ -62,7 +62,7 @@ impl Capability {
         }
 
         // If pattern ends with *, match all sub-capabilities
-        pattern_parts.last == Some(&"*") || pattern_parts.len() == capability_parts.len()
+        pattern_parts.last() == Some(&"*") || pattern_parts.len() == capability_parts.len()
     }
 }
 
@@ -106,7 +106,7 @@ impl Version {
     /// Check if this version is compatible with a requirement
     pub fn is_compatible(&self, required: &Self) -> bool {
         // Same major version and at least the required minor/patch
-        self.major == required.majoor && (self.minor > required.minor || (self.minor == required.minor && self.patch >= required.patch))
+        self.major == required.major && (self.minor > required.minor || (self.minor == required.minor && self.patch >= required.patch))
     }
 }
 
@@ -287,7 +287,7 @@ pub struct StreamHandle {
     pub stream_type: Capability,
 
     /// Direction of the stream
-    pub direction: SteamDirection,
+    pub direction: StreamDirection,
 
     /// Stream configuration
     pub config: StreamConfig,
@@ -328,7 +328,7 @@ impl Default for StreamConfig {
 }
 
 /// Network identity (DID)
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NetworkId(String);
 
 impl NetworkId {
@@ -349,7 +349,7 @@ impl NetworkId {
 
     /// Get the network name from DID
     pub fn name(&self) -> &str {
-        self.0.strip_prefix("did:maia:").unwrap(&self.0)
+        self.0.strip_prefix("did:maia:").unwrap_or(&self.0)
     }
 }
 
@@ -421,9 +421,9 @@ mod tests {
         let cap = Capability::new("ai.nlp.generate");
 
         assert!(cap.matches("*"));
-        assert!(cap.matches("a1.*"));
-        assert!(cap.matches("a1.nlp.*"));
-        assert!(cap.matches("a1.nlp.generate"));
+        assert!(cap.matches("ai.*"));
+        assert!(cap.matches("ai.nlp.*"));
+        assert!(cap.matches("ai.nlp.generate"));
         assert!(!cap.matches("ai.vision.*"));
         assert!(!cap.matches("storage.*"));
     }
@@ -444,10 +444,10 @@ mod tests {
     #[test]
     fn test_network_id() {
         let id = NetworkId::new("test-home");
-        assert_eq!(id.to_string(), "did.maia:test-home");
+        assert_eq!(id.to_string(), "did:maia:test-home");
         assert_eq!(id.name(), "test-home");
 
-        let parsed = NetworkId::parse("did.maia:test-home").unwrap();
+        let parsed = NetworkId::parse("did:maia:test-network").unwrap();
         assert_eq!(parsed.name(), "test-network");
     }
 }
