@@ -3,10 +3,10 @@
 //! Follows the principle: All errors are either recoverable (can retry) or fatal (must handle differently).
 //! Every error provides context and recovery suggestions.
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use thiserror::Error;
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 
 /// Main error type for maia modules
 #[derive(Debug, Clone, Error)]
@@ -30,10 +30,7 @@ pub enum TemporaryError {
     },
 
     #[error("Request timeout after {timeout_ms}ms")]
-    Timeout {
-        timeout_ms: u64,
-        operation: String,
-    },
+    Timeout { timeout_ms: u64, operation: String },
 
     #[error("Rate limit exceeded: {message}")]
     RateLimited {
@@ -42,26 +39,17 @@ pub enum TemporaryError {
     },
 
     #[error("Network error: {message}")]
-    Network {
-        message: String,
-        recoverable: bool,
-    },
+    Network { message: String, recoverable: bool },
 
     #[error("Module temporarily unavailable: {module}")]
-    ModuleUnavailable {
-        module: String,
-        reason: String,
-    },
+    ModuleUnavailable { module: String, reason: String },
 }
 
 /// Fatal errors that cannot be retried with same parameters
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]
 pub enum FatalError {
     #[error("Module not found: {module}")]
-    ModuleNotFound {
-        module: String,
-        suggestion: String,
-    },
+    ModuleNotFound { module: String, suggestion: String },
 
     #[error("Capability not found: {capability}")]
     CapabilityNotFound {
@@ -89,10 +77,7 @@ pub enum FatalError {
     },
 
     #[error("Incompatible version: requires {required}, got {actual}")]
-    VersionMismatch {
-        required: String,
-        actual: String,
-    },
+    VersionMismatch { required: String, actual: String },
 
     #[error("Resource limit exceeded: {resource}")]
     ResourceExhausted {
@@ -258,7 +243,7 @@ impl From<ContextualError> for ErrorInfo {
 }
 
 /// Get error code for serialization
-fn  error_code(error: &(dyn std::error::Error + 'static)) -> &'static str {
+fn error_code(error: &(dyn std::error::Error + 'static)) -> &'static str {
     // Use type name as error code
     // In prod, we'd have a proper error code mapping
     if error.is::<TemporaryError>() {
