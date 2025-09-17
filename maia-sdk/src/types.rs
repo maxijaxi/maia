@@ -1,10 +1,10 @@
 //! Core types for MAIA message passing and module communication.
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
+use uuid::Uuid;
 
 use crate::error::ErrorInfo;
 
@@ -106,7 +106,9 @@ impl Version {
     /// Check if this version is compatible with a requirement
     pub fn is_compatible(&self, required: &Self) -> bool {
         // Same major version and at least the required minor/patch
-        self.major == required.major && (self.minor > required.minor || (self.minor == required.minor && self.patch >= required.patch))
+        self.major == required.major
+            && (self.minor > required.minor
+                || (self.minor == required.minor && self.patch >= required.patch))
     }
 }
 
