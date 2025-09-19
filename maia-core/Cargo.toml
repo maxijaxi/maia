@@ -1,0 +1,52 @@
+[package]
+name = "maia-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+
+tonic = { workspace = true }
+prost = { workspace = true }
+
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
+
+mdns = { workspace = true }
+
+ed25519-dalek = { workspace = true }
+x25519-dalek = { workspace = true }
+aes-gcm = { workspace = true }
+
+uuid = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Internal
+maia-sdk = { path = "../maia-sdk" }
+
+[dev-dependencies]
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "routing"
+harness = false
+
+[[bench]]
+name = "message_passing"
+harness = false
