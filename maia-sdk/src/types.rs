@@ -167,7 +167,7 @@ pub struct Request {
     /// Unique request ID
     pub id: Uuid,
 
-    /// The capability being released
+    /// The capability being requested
     pub capability: Capability,
 
     /// Request payload (JSON)
