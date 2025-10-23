@@ -71,3 +71,16 @@ pub mod prelude {
 
 /// Version information for the SDK
 pub const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_prelude_imports() {
+        // Just verify that prelude items are accessible
+        use crate::prelude::*;
+
+        let _cap = Capability::new("test");
+        let _version = Version::new(1, 0, 0);
+        let _manifest = ModuleManifest::minimal("test", "Test");
+    }
+}
