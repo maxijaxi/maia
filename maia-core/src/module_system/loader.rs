@@ -33,17 +33,32 @@ impl Default for LoaderConfig {
     }
 }
 
-/// Module file types
+/// Module file types that can be loaded.
+///
+/// These correspond to file formats and isolation methods, NOT programming languages.
+/// Any language can compile to these formats:
+/// - Python/JS/Rust/C++ → WASM
+/// - Rust/C++ → Native (.so/.dll)
+/// - Any language → Container (Docker image)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModuleType {
     /// WebAssembly module (.wasm)
+    /// - Full sandboxing via wasmtime
+    /// - Any language that compiles to WASM
+    /// - Preferred for untrusted modules
     Wasm,
+
     /// Native shared library (.so, .dll, .dylib)
+    /// - Zero isolation - runs in same process
+    /// - Only for trusted core modules
+    /// - Must match host architecture
     Native,
-    /// Python module (.py)
-    Python,
-    /// JavaScript module (.js)
-    JavaScript,
+
+    /// OCI container image (future)
+    /// - OS-level isolation via Docker/Podman
+    /// - Any language/runtime
+    /// - Good for complex dependencies
+    Container,
 }
 
 impl ModuleType {
@@ -59,8 +74,7 @@ impl ModuleType {
                 #[cfg(target_os = "windows")]
                 return "dll";
             }
-            ModuleType::Python => "py",
-            ModuleType::JavaScript => "js",
+            ModuleType::Container => "", // Loaded by image name, not file extension
         }
     }
 
@@ -70,9 +84,16 @@ impl ModuleType {
         match ext {
             "wasm" => Some(ModuleType::Wasm),
             "so" | "dylib" | "dll" => Some(ModuleType::Native),
-            "py" => Some(ModuleType::Python),
-            "js" => Some(ModuleType::JavaScript),
             _ => None,
+        }
+    }
+
+    /// Get the corresponding isolation level for this module type
+    pub fn isolation_level(&self) -> IsolationLevel {
+        match self {
+            ModuleType::Wasm => IsolationLevel::Wasm,
+            ModuleType::Native => IsolationLevel::Native,
+            ModuleType::Container => IsolationLevel::Container,
         }
     }
 }
@@ -156,7 +177,7 @@ impl ModuleLoader {
         // Detect module type
         let module_type = ModuleType::from_path(path).ok_or_else(|| {
             ModuleError::Fatal(FatalError::InvalidRequest {
-                message: "Unknown module type".to_string(),
+                message: format!("Unknown module type for file: {}", path.display()),
                 field: Some("extension".to_string()),
             })
         })?;
@@ -170,14 +191,15 @@ impl ModuleLoader {
         }
 
         // TODO: Read actual metadata from module
-        // For WASM: Parse custom sections
-        // For Native: Read from symbol table or metadata file
+        // For WASM: Parse custom sections for embedded manifest
+        // For Native: Look for accompanying .toml manifest file
+        // See: https://github.com/WebAssembly/tool-conventions/blob/main/CustomSections.md
 
         Ok(ModuleMetadata {
             path: path.to_path_buf(),
             module_type,
             size: metadata.len(),
-            hash: None, // TODO: Calculate hash
+            hash: None, // TODO: Calculate SHA-256 hash
         })
     }
 
@@ -188,21 +210,38 @@ impl ModuleLoader {
         }
 
         // TODO: Implement signature verification
-        // 1. Read signature file (e.g., module.wasm.sig)
-        // 2. Read public key from trusted store
-        // 3. Verify signature matches module hash
+        // 1. Look for signature file (e.g., module.wasm.sig)
+        // 2. Read public key from trusted keystore
+        // 3. Calculate module hash
+        // 4. Verify signature matches hash
+        //
+        // Use ed25519-dalek for signature verification
 
         Ok(())
     }
 }
 
-/// Module metadata
+/// Module metadata extracted from file
 #[derive(Debug, Clone)]
 pub struct ModuleMetadata {
+    /// Path to the module file
     pub path: PathBuf,
+
+    /// Detected module type
     pub module_type: ModuleType,
+
+    /// File size in bytes
     pub size: u64,
+
+    /// Optional cryptographic hash of module contents
     pub hash: Option<Vec<u8>>,
+}
+
+impl ModuleMetadata {
+    /// Get the isolation level appropriate for this module type
+    pub fn isolation_level(&self) -> IsolationLevel {
+        self.module_type.isolation_level()
+    }
 }
 
 #[cfg(test)]
@@ -211,28 +250,91 @@ mod tests {
 
     #[test]
     fn test_module_type_detection() {
+        // WASM modules
         assert_eq!(
             ModuleType::from_path(Path::new("test.wasm")),
             Some(ModuleType::Wasm)
         );
         assert_eq!(
+            ModuleType::from_path(Path::new("module.wasm")),
+            Some(ModuleType::Wasm)
+        );
+
+        // Native modules (platform-specific)
+        assert_eq!(
             ModuleType::from_path(Path::new("libtest.so")),
             Some(ModuleType::Native)
         );
         assert_eq!(
-            ModuleType::from_path(Path::new("test.py")),
-            Some(ModuleType::Python)
+            ModuleType::from_path(Path::new("test.dylib")),
+            Some(ModuleType::Native)
         );
+        assert_eq!(
+            ModuleType::from_path(Path::new("module.dll")),
+            Some(ModuleType::Native)
+        );
+
+        // Unsupported types should return None
         assert_eq!(ModuleType::from_path(Path::new("test.txt")), None);
+        assert_eq!(ModuleType::from_path(Path::new("test.py")), None);
+        assert_eq!(ModuleType::from_path(Path::new("test.js")), None);
+        assert_eq!(ModuleType::from_path(Path::new("test.rs")), None);
+    }
+
+    #[test]
+    fn test_module_type_extension() {
+        assert_eq!(ModuleType::Wasm.extension(), "wasm");
+
+        #[cfg(target_os = "linux")]
+        assert_eq!(ModuleType::Native.extension(), "so");
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(ModuleType::Native.extension(), "dylib");
+
+        #[cfg(target_os = "windows")]
+        assert_eq!(ModuleType::Native.extension(), "dll");
+    }
+
+    #[test]
+    fn test_isolation_level_mapping() {
+        assert_eq!(
+            ModuleType::Wasm.isolation_level(),
+            IsolationLevel::Wasm
+        );
+        assert_eq!(
+            ModuleType::Native.isolation_level(),
+            IsolationLevel::Native
+        );
+        assert_eq!(
+            ModuleType::Container.isolation_level(),
+            IsolationLevel::Container
+        );
     }
 
     #[tokio::test]
-    async fn test_module_loader() {
+    async fn test_module_loader_creation() {
         let config = LoaderConfig::default();
         let loader = ModuleLoader::new(config);
 
-        // This will fail since we don't have actual modules yet
-        let result = loader.find_module("test").await;
+        // Verify default configuration
+        assert_eq!(loader.config.allowed_types.len(), 2);
+        assert!(loader.config.allowed_types.contains(&ModuleType::Wasm));
+        assert!(loader.config.allowed_types.contains(&ModuleType::Native));
+    }
+
+    #[tokio::test]
+    async fn test_module_loader_find_nonexistent() {
+        let config = LoaderConfig::default();
+        let loader = ModuleLoader::new(config);
+
+        // This should fail since we don't have actual modules yet
+        let result = loader.find_module("nonexistent_module").await;
         assert!(result.is_err());
+
+        if let Err(ModuleError::Fatal(FatalError::ModuleNotFound { module, .. })) = result {
+            assert_eq!(module, "nonexistent_module");
+        } else {
+            panic!("Expected ModuleNotFound error");
+        }
     }
 }
