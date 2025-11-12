@@ -8,6 +8,9 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# Internal crates
+maia-sdk = { workspace = true }
+
 tokio = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
@@ -35,9 +38,6 @@ thiserror = { workspace = true }
 
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-
-# Internal
-maia-sdk = { path = "../maia-sdk" }
 
 [dev-dependencies]
 proptest = { workspace = true }

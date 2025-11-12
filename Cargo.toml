@@ -3,8 +3,8 @@ resolver = "2"
 members = [
     "maia-core",
     "maia-sdk",
-    # "maia-cli",
-    # "maia-module/*",
+    "maia-cli",
+    "maia-module/*",
 ]
 
 [workspace.package]
@@ -13,7 +13,7 @@ edition = "2024"
 authors = ["Maximilian Schuster"]
 license = "MIT"
 repository = "https://github.com/maxijaxi/maia"
-# homepage = ""
+homepage = "https://maia-protocol.org/"
 rust-version = "1.85.0"
 
 [workspace.dependencies]
